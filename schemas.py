@@ -42,13 +42,29 @@ class EvaluationResponse(BaseModel):
     def _normalize_score(cls, value: Any) -> float:
         return normalize_score(value)
 
-    @field_validator("code_logic", "overall", "correctness_feedback", mode="before")
+    @field_validator("code_logic", mode="before")
     @classmethod
-    def _required_text(cls, value: Any) -> str:
+    def _code_logic(cls, value: Any) -> str:
+        if isinstance(value, list):
+            value = " ".join(str(v).strip() for v in value if str(v).strip())
         text = "" if value is None else str(value).strip()
-        if not text:
-            raise ValueError("required text fields must not be empty")
-        return text
+        return text or "[No code logic provided]"
+
+    @field_validator("overall", mode="before")
+    @classmethod
+    def _overall(cls, value: Any) -> str:
+        if isinstance(value, list):
+            value = " ".join(str(v).strip() for v in value if str(v).strip())
+        text = "" if value is None else str(value).strip()
+        return text or "[No overall summary provided]"
+
+    @field_validator("correctness_feedback", mode="before")
+    @classmethod
+    def _correctness_feedback(cls, value: Any) -> str:
+        if isinstance(value, list):
+            value = " ".join(str(v).strip() for v in value if str(v).strip())
+        text = "" if value is None else str(value).strip()
+        return text or "[No correctness feedback provided]"
 
     @field_validator("corrected_code", mode="before")
     @classmethod

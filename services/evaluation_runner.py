@@ -248,7 +248,6 @@ class EvaluationRunner:
                 "weaknesses": _safe_load_list(record.get("Weaknesses", "[]")),
                 "recommendations": _safe_load_list(record.get("Recommendations", "[]")),
                 "correctness_feedback": record.get("Correctness_Feedback", ""),
-                "improvement_suggestions": _safe_load_list(record.get("Improvement_Suggestions", "[]")),
                 "corrected_code": record.get("Corrected_Code", ""),
             }
 
@@ -276,7 +275,6 @@ class EvaluationRunner:
                             weaknesses=review_parsed.weaknesses,
                             recommendations=review_parsed.recommendations,
                             correctness_feedback=review_parsed.correctness_feedback,
-                            improvement_suggestions=review_parsed.improvement_suggestions,
                             corrected_code=review_parsed.corrected_code,
                         )
 
@@ -306,7 +304,6 @@ class EvaluationRunner:
                                         weaknesses=retry_parsed.weaknesses,
                                         recommendations=retry_parsed.recommendations,
                                         correctness_feedback=retry_parsed.correctness_feedback,
-                                        improvement_suggestions=retry_parsed.improvement_suggestions,
                                         corrected_code=retry_parsed.corrected_code,
                                     )
                                 if revised_eval.corrected_code == "[No corrected code provided by evaluator]" or not revised_eval.corrected_code.strip():
