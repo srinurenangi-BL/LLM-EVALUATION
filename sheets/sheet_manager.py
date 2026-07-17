@@ -222,7 +222,7 @@ class SheetManager:
             rows_to_write.append(row)
         if rows_to_write:
             self.output_ws.append_rows(rows_to_write, value_input_option="RAW")
-            self.style_output_tab()
+            self._style_qwen_tab()
             print(f"Pre-loaded {len(input_rows)} student submissions into the output sheet.")
 
     def clear_output_rows(self) -> None:
