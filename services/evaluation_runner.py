@@ -7,7 +7,7 @@ from typing import Any, Protocol
 
 
 from config import AppConfig
-from schemas import EvaluationResponse, calculate_avg_score, evaluation_response_to_dict, quality_label
+from schemas import EvaluationResponse, calculate_overall_score, evaluation_response_to_dict, quality_label
 from services.audit_service import AuditService
 from services.error_logger import ErrorLogger
 from sheets.sheet_manager import QWEN_HEADERS, SheetManager, done_record_completion_issues, list_to_sheet_json, utc_now_iso
@@ -237,11 +237,11 @@ class EvaluationRunner:
             # Build existing evaluation fields dict
             existing_eval = {
                 "code_logic": record.get("Code Logic", ""),
-                "correctness": _safe_float(record.get("Correctness", 0.0)),
-                "code_quality": _safe_float(record.get("Code Quality", 0.0)),
-                "efficiency": _safe_float(record.get("Efficiency", 0.0)),
+                "completeness_score": _safe_float(record.get("Completeness", 0.0)),
+                "code_quality_score": _safe_float(record.get("Code Quality", 0.0)),
+                "approach_taken_score": _safe_float(record.get("Approach Taken", 0.0)),
                 "overall": record.get("Overall", ""),
-                "avg_score": _safe_float(record.get("Avg Score", 0.0)),
+                "overall_score": _safe_float(record.get("Overall Score", 0.0)),
                 "quality_label": record.get("Quality Label", ""),
                 "common_errors": _safe_load_list(record.get("Common_Errors", "[]")),
                 "strengths": _safe_load_list(record.get("Strengths", "[]")),
@@ -267,9 +267,9 @@ class EvaluationRunner:
                     try:
                         revised_eval = EvaluationResponse(
                             code_logic=review_parsed.code_logic,
-                            correctness=review_parsed.correctness,
-                            code_quality=review_parsed.code_quality,
-                            efficiency=review_parsed.efficiency,
+                            completeness_score=review_parsed.completeness_score,
+                            code_quality_score=review_parsed.code_quality_score,
+                            approach_taken_score=review_parsed.approach_taken_score,
                             overall=review_parsed.overall,
                             common_errors=review_parsed.common_errors,
                             strengths=review_parsed.strengths,
@@ -281,7 +281,7 @@ class EvaluationRunner:
                         )
 
                         if revised_eval.corrected_code == "[No corrected code provided by evaluator]" or not revised_eval.corrected_code.strip():
-                            if revised_eval.correctness >= 9.5:
+                            if revised_eval.completeness_score >= 9.5:
                                 revised_eval.corrected_code = input_row["student_code"]
                             else:
                                 print(f"  Empty corrected_code in revised evaluation. Retrying review with warning...")
@@ -297,9 +297,9 @@ class EvaluationRunner:
                                     retry_parsed = retry_review_result["parsed"]
                                     revised_eval = EvaluationResponse(
                                         code_logic=retry_parsed.code_logic,
-                                        correctness=retry_parsed.correctness,
-                                        code_quality=retry_parsed.code_quality,
-                                        efficiency=retry_parsed.efficiency,
+                                        completeness_score=retry_parsed.completeness_score,
+                                        code_quality_score=retry_parsed.code_quality_score,
+                                        approach_taken_score=retry_parsed.approach_taken_score,
                                         overall=retry_parsed.overall,
                                         common_errors=retry_parsed.common_errors,
                                         strengths=retry_parsed.strengths,
@@ -397,7 +397,7 @@ class EvaluationRunner:
             if qwen_result.get("status") == "DONE" and qwen_result.get("parsed"):
                 parsed = qwen_result["parsed"]
                 if parsed.corrected_code == "[No corrected code provided by evaluator]" or not parsed.corrected_code.strip():
-                    if parsed.correctness >= 9.5:
+                    if parsed.completeness_score >= 9.5:
                         parsed.corrected_code = input_row["student_code"]
                     else:
                         if attempt < self.config.max_retries:
@@ -480,18 +480,17 @@ class EvaluationRunner:
             input_row["question"],
             input_row["student_code"],
             fields["code_logic"],
-            fields["correctness"],
-            fields["code_quality"],
-            fields["efficiency"],
+            fields["completeness_score"],
+            fields["code_quality_score"],
+            fields["approach_taken_score"],
             fields["overall"],
-            fields["avg_score"],
+            fields["overall_score"],
             fields["quality_label"],
             fields["common_errors"],
             fields["strengths"],
             fields["weaknesses"],
             fields["recommendations"],
             fields["correctness_feedback"],
-            fields["improvement_suggestions"],
             fields["corrected_code"],
             final_row_status,
         ]
@@ -504,21 +503,20 @@ class EvaluationRunner:
 
 def _evaluation_fields(parsed: EvaluationResponse) -> dict[str, Any]:
     parsed_dict = evaluation_response_to_dict(parsed)
-    avg_score = calculate_avg_score(parsed.correctness, parsed.code_quality, parsed.efficiency)
+    overall_score = calculate_overall_score(parsed.completeness_score, parsed.code_quality_score, parsed.approach_taken_score)
     return {
         "code_logic": parsed_dict["code_logic"],
-        "correctness": parsed.correctness,
-        "code_quality": parsed.code_quality,
-        "efficiency": parsed.efficiency,
+        "completeness_score": parsed.completeness_score,
+        "code_quality_score": parsed.code_quality_score,
+        "approach_taken_score": parsed.approach_taken_score,
         "overall": parsed_dict["overall"],
-        "avg_score": avg_score,
-        "quality_label": quality_label(avg_score),
+        "overall_score": overall_score,
+        "quality_label": quality_label(overall_score),
         "common_errors": list_to_sheet_json(parsed_dict["common_errors"]),
         "strengths": list_to_sheet_json(parsed_dict["strengths"]),
         "weaknesses": list_to_sheet_json(parsed_dict["weaknesses"]),
         "recommendations": list_to_sheet_json(parsed_dict["recommendations"]),
         "correctness_feedback": parsed_dict["correctness_feedback"],
-        "improvement_suggestions": list_to_sheet_json(parsed_dict["improvement_suggestions"]),
         "corrected_code": parsed_dict["corrected_code"],
     }
 
@@ -526,18 +524,17 @@ def _evaluation_fields(parsed: EvaluationResponse) -> dict[str, Any]:
 def _empty_evaluation_fields() -> dict[str, Any]:
     return {
         "code_logic": "",
-        "correctness": "",
-        "code_quality": "",
-        "efficiency": "",
+        "completeness_score": "",
+        "code_quality_score": "",
+        "approach_taken_score": "",
         "overall": "",
-        "avg_score": "",
+        "overall_score": "",
         "quality_label": "",
         "common_errors": "",
         "strengths": "",
         "weaknesses": "",
         "recommendations": "",
         "correctness_feedback": "",
-        "improvement_suggestions": "",
         "corrected_code": "",
     }
 

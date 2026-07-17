@@ -11,7 +11,7 @@ from unittest.mock import Mock, patch
 import main
 from config import ACTIVE_MODEL_NAME, DEFAULT_QWEN_MODEL_NAME, AppConfig
 from evaluators.qwen_evaluator import QwenEvaluator
-from schemas import calculate_avg_score, clamp_score, normalize_score, quality_label
+from schemas import calculate_overall_score, clamp_score, normalize_score, quality_label
 from services.audit_service import AuditService
 from services.evaluation_runner import EvaluationRunner, _output_validation_errors, _safe_evaluate
 from services.json_parser import parse_evaluation_json
@@ -21,16 +21,15 @@ from prompts import build_user_prompt
 
 VALID_RESPONSE = {
     "code_logic": "Uses loops correctly",
-    "correctness": "8.5 out of 10",
-    "code_quality": "9/10",
-    "efficiency": 7,
+    "completeness_score": "8.5 out of 10",
+    "code_quality_score": "9/10",
+    "approach_taken_score": 7,
     "overall": "Mostly correct",
     "common_errors": ["No major errors found"],
     "strengths": ["Readable"],
     "weaknesses": ["Could handle more edge cases"],
     "recommendations": ["Add tests"],
-    "correctness_feedback": "Works for normal cases",
-    "improvement_suggestions": ["Check null input"],
+    "correctness_feedback": "The code works for normal cases. Consider handling null input for robustness.",
     "corrected_code": "class Main { public static void main(String[] args) { } }",
 }
 
@@ -38,13 +37,13 @@ VALID_RESPONSE = {
 class ParserAndSchemaTests(unittest.TestCase):
     def test_parses_direct_json(self) -> None:
         parsed = parse_evaluation_json(json.dumps(VALID_RESPONSE))
-        self.assertEqual(parsed.correctness, 8.5)
-        self.assertEqual(parsed.code_quality, 9.0)
+        self.assertEqual(parsed.completeness_score, 8.5)
+        self.assertEqual(parsed.code_quality_score, 9.0)
 
     def test_parses_markdown_fenced_json(self) -> None:
         raw = "```json\n" + json.dumps(VALID_RESPONSE) + "\n```"
         parsed = parse_evaluation_json(raw)
-        self.assertEqual(parsed.efficiency, 7.0)
+        self.assertEqual(parsed.approach_taken_score, 7.0)
 
     def test_parses_json_with_surrounding_text(self) -> None:
         raw = "extra text " + json.dumps(VALID_RESPONSE) + " trailing text"
@@ -53,18 +52,15 @@ class ParserAndSchemaTests(unittest.TestCase):
 
     def test_alias_keys_are_normalized(self) -> None:
         data = dict(VALID_RESPONSE)
-        data["correctness_score"] = data.pop("correctness")
-        data["code-quality-score"] = data.pop("code_quality")
-        data["efficiency score"] = data.pop("efficiency")
-        data["done_well"] = data.pop("strengths")
-        data["suggestions"] = data.pop("improvement_suggestions")
-        data["fixed_code"] = data.pop("corrected_code")
+        data["correctness"] = data.pop("completeness_score")        # old name → new
+        data["efficiency"] = data.pop("approach_taken_score")       # old name → new
+        data["done_well"] = data.pop("strengths")                   # alias → strengths
+        data["fixed_code"] = data.pop("corrected_code")             # alias → corrected_code
 
         parsed = parse_evaluation_json(json.dumps(data))
 
-        self.assertEqual(parsed.correctness, 8.5)
+        self.assertEqual(parsed.completeness_score, 8.5)
         self.assertEqual(parsed.strengths, ["Readable"])
-        self.assertEqual(parsed.improvement_suggestions, ["Check null input"])
 
     def test_string_list_conversion_and_empty_fallback(self) -> None:
         data = dict(VALID_RESPONSE)
@@ -95,12 +91,13 @@ class ParserAndSchemaTests(unittest.TestCase):
         self.assertEqual(clamp_score(12), 10.0)
         self.assertEqual(clamp_score(-1), 0.0)
 
-    def test_avg_score_and_quality_label_are_deterministic(self) -> None:
-        avg = calculate_avg_score(8, 7, 6)
-        self.assertEqual(avg, 7.0)
-        self.assertEqual(quality_label(avg), "Good")
+    def test_overall_score_and_quality_label_are_deterministic(self) -> None:
+        # overall_score = (0.5 * 8) + (0.3 * 7) + (0.2 * 6) = 4.0 + 2.1 + 1.2 = 7.3
+        score = calculate_overall_score(8, 7, 6)
+        self.assertEqual(score, 7.3)
+        self.assertEqual(quality_label(score), "Average")
         self.assertEqual(quality_label(9.2), "Excellent")
-        self.assertEqual(quality_label(2.99), "Very Poor")
+        self.assertEqual(quality_label(2.99), "Critical")
 
     def test_prompt_includes_all_four_input_values(self) -> None:
         prompt = build_user_prompt("Question text", "class Main {}", qsn_no="5", user_id="student-1")
@@ -351,10 +348,11 @@ class JavaCodeValidationTests(unittest.TestCase):
 
         mock_evaluator.evaluate.assert_called_once()
         self.assertEqual(qwen_result["status"], "DONE")
-        self.assertEqual(row_values[QWEN_HEADERS.index("Correctness")], 8.5)
+        self.assertEqual(row_values[QWEN_HEADERS.index("Completeness")], 8.5)
         self.assertEqual(row_values[QWEN_HEADERS.index("Code Quality")], 9.0)
-        self.assertEqual(row_values[QWEN_HEADERS.index("Efficiency")], 7.0)
-        self.assertEqual(row_values[QWEN_HEADERS.index("Avg Score")], 8.17)
+        self.assertEqual(row_values[QWEN_HEADERS.index("Approach Taken")], 7.0)
+        # overall_score = (0.5 * 8.5) + (0.3 * 9.0) + (0.2 * 7.0) = 4.25 + 2.7 + 1.4 = 8.35
+        self.assertEqual(row_values[QWEN_HEADERS.index("Overall Score")], 8.35)
         self.assertEqual(row_values[QWEN_HEADERS.index("Quality Label")], "Good")
         self.assertEqual(row_values[QWEN_HEADERS.index("Final_Row_Status")], "DONE")
 
@@ -390,7 +388,7 @@ class QwenEvaluatorTests(unittest.TestCase):
         evaluator.session.post = Mock(return_value=response)
         result = evaluator.evaluate("Q", "code", qsn_no="1", user_id="u1")
         self.assertEqual(result["status"], "DONE")
-        self.assertEqual(result["parsed"].correctness, 8.5)
+        self.assertEqual(result["parsed"].completeness_score, 8.5)
         payload = evaluator.session.post.call_args.kwargs["json"]
         user_prompt = payload["messages"][1]["content"]
         self.assertIn("QSN No: 1", user_prompt)
@@ -610,18 +608,17 @@ def _done_output_record(input_id: str) -> dict[str, str]:
         "Qwen_Model": DEFAULT_QWEN_MODEL_NAME,
         "Qwen_Status": "DONE",
         "Code Logic": "Uses loops correctly",
-        "Correctness": "8.5",
+        "Completeness": "8.5",
         "Code Quality": "9",
-        "Efficiency": "7",
+        "Approach Taken": "7",
         "Overall": "Mostly correct",
-        "Avg Score": "8.17",
+        "Overall Score": "8.35",
         "Quality Label": "Good",
         "Common_Errors": '["No major errors found"]',
         "Strengths": '["Readable"]',
         "Weaknesses": '["Could handle more edge cases"]',
         "Recommendations": '["Add tests"]',
-        "Correctness_Feedback": "Works for normal cases",
-        "Improvement_Suggestions": '["Check null input"]',
+        "Correctness_Feedback": "The code works for normal cases. Consider handling null input for robustness.",
         "Corrected_Code": "class Main { public static void main(String[] args) { } }",
         "Qwen_Raw_Response": json.dumps(VALID_RESPONSE),
         "Final_Row_Status": "DONE",

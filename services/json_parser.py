@@ -8,20 +8,32 @@ from schemas import EvaluationResponse, validate_evaluation_response
 
 
 KEY_ALIASES = {
-    "correctness_score": "correctness",
-    "code_quality_score": "code_quality",
-    "efficiency_score": "efficiency",
+    # Score field aliases — old names and common LLM variants → new names
+    "correctness": "completeness_score",
+    "correctness_score": "completeness_score",
+    "completeness": "completeness_score",
+    "code_quality": "code_quality_score",
+    "quality_score": "code_quality_score",
+    "efficiency": "approach_taken_score",
+    "efficiency_score": "approach_taken_score",
+    "approach_taken": "approach_taken_score",
+    "approach": "approach_taken_score",
+    # List field aliases
     "commonerrors": "common_errors",
     "common_error": "common_errors",
     "errors": "common_errors",
     "done_well": "strengths",
     "donewell": "strengths",
-    "suggestions": "improvement_suggestions",
-    "improvements": "improvement_suggestions",
-    "improvement": "improvement_suggestions",
+    # improvement_suggestions no longer a separate field — map to correctness_feedback
+    "suggestions": "correctness_feedback",
+    "improvements": "correctness_feedback",
+    "improvement": "correctness_feedback",
+    "improvement_suggestions": "correctness_feedback",
+    # corrected_code aliases
     "fixed_code": "corrected_code",
     "correct_code": "corrected_code",
     "corrected_java_code": "corrected_code",
+    # code_logic aliases
     "logic": "code_logic",
     "code_logic_feedback": "code_logic",
 }
