@@ -66,7 +66,3 @@ def _count_records(records: list[dict[str, str]], field: str, value: str) -> int
 
 def _done_record_has_missing_fields(record: dict[str, str]) -> bool:
     return bool(done_record_completion_issues(record))
-
-
-# Gemini reference only. Previous audit reports counted Gemini_Status.
-# This Qwen-only build audits Qwen_Status and Final_Row_Status only.

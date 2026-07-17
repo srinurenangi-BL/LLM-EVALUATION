@@ -614,11 +614,6 @@ def _safe_evaluate(
     return result
 
 
-# Gemini reference only. The runner intentionally has no Gemini branch.
-# Previous dual-mode logic called Gemini and Qwen based on a selected mode.
-# In this build, every evaluation row goes through Qwen only.
-
-
 def is_java_code(code: str) -> bool:
     if not code:
         return False

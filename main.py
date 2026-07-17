@@ -89,7 +89,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-
-
-# Gemini reference only. The active CLI no longer imports or builds Gemini evaluators.
-# Previously supported examples such as `--model gemini` and `--model both` are disabled.

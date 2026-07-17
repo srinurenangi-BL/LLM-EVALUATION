@@ -122,9 +122,3 @@ def _parse_float(name: str, default: float) -> float:
 def _looks_like_placeholder(value: str) -> bool:
     normalized = value.strip().lower()
     return any(marker in normalized for marker in PLACEHOLDER_MARKERS)
-
-
-# Gemini reference only. Gemini is intentionally inactive in this Qwen-only build.
-# DEFAULT_GEMINI_MODEL_NAME = "gemini-2.5-flash"
-# GEMINI_API_KEY and GEMINI_MODEL_NAME were previously loaded here for Gemini mode.
-# That mode is disabled so Qwen is the only evaluator used by the application.

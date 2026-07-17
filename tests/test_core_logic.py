@@ -135,13 +135,6 @@ class ConfigTests(unittest.TestCase):
                 parser.parse_args(["--model", "gemini", "--check"])
 
 
-class GeminiDisabledTests(unittest.TestCase):
-    def test_gemini_module_has_no_active_evaluator_class(self) -> None:
-        import evaluators.gemini_evaluator as gemini_module
-
-        self.assertFalse(hasattr(gemini_module, "GeminiEvaluator"))
-
-
 class SheetInputTests(unittest.TestCase):
     def test_student_code_column_detection_and_header_trimming(self) -> None:
         manager = SheetManager.__new__(SheetManager)

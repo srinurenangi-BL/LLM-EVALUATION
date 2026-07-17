@@ -879,7 +879,3 @@ def _persist_output_sheet_url(output_sheet_url: str) -> None:
             "Warning: created an output sheet but could not persist OUTPUT_SHEET_URL "
             "to .env. Add the printed output URL to .env before rerunning."
         )
-
-
-# Gemini reference only. Older combined-output code wrote Gemini_* columns.
-# This Qwen-only build writes only QWEN_HEADERS to Qwen_Evaluation.
