@@ -1,0 +1,6 @@
+gspread
+google-auth
+pydantic>=2
+python-dotenv
+requests
+pytest
