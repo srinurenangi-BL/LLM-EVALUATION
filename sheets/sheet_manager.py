@@ -209,7 +209,7 @@ class SheetManager:
         return input_rows
 
     def initialize_output_sheet_with_inputs(self, input_rows: list[dict[str, str]]) -> None:
-        self.ensure_output_headers()
+        self._ensure_qwen_headers()
         rows_to_write = []
         for r in input_rows:
             row = [
